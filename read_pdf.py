@@ -98,7 +98,7 @@ def read_pdf(list_columns, path, poches, output_type=0, file_prefix="output"):
 if __name__ == '__main__':
     path = 'VCB_13_9_2024.pdf'
     list_columns = ['stt', 'date', 'amount', 'content']
-    poches = 100  # Số hàng mỗi lần in và lưu
+    poches = 500  # Số hàng mỗi lần in và lưu
     output_type = 2  # 0: Excel, 1: CSV, 2: Cả Excel và CSV
     file_prefix = "output_data"  # Tên file lưu trữ
     
