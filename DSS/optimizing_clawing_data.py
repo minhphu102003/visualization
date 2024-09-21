@@ -4,6 +4,8 @@ from selenium.webdriver.common.by import By
 import time
 import json
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 
 # Cấu hình Chrome options
 chrome_options = Options()
@@ -13,13 +15,12 @@ chrome_options.add_argument("--no-sandbox")
 chrome_options.add_argument("--disable-images")
 chrome_options.add_argument("--disable-javascript")
 
-# Đường dẫn tới ChromeDriver (bạn cần thay thế đường dẫn này)
-driver_path = "path/to/chromedriver"
 
-# Khởi tạo trình duyệt
-driver = webdriver.Chrome(options=chrome_options)
+# Thread-safe list for storing scores
+all_scores = []
+lock = Lock()  # To prevent race conditions when appending to the list
 
-def get_data(code, year):
+def get_data(driver, code, year):
     try:
         # Tạo URL với mã và năm
         url = f"https://diemthi.vnanet.vn/Home/SearchBySobaodanh?code={code}&nam={year}"
@@ -28,6 +29,7 @@ def get_data(code, year):
         driver.get(url)
         
         # Đợi trang tải (nếu cần)
+        time.sleep(1)  # Can adjust this time if needed
         
         # Tìm và lấy dữ liệu (sử dụng các phương pháp của Selenium)
         result_element = driver.find_element(By.XPATH, '/html/body/pre')
@@ -60,33 +62,40 @@ def get_data(code, year):
         print(f"Lỗi khi lấy dữ liệu: {e}")
         return None
 
-if __name__ == "__main__":
+def scrape_city(codeCity):
     nam = 2018
-    all_scores = []  # Mảng để chứa tất cả điểm
-    continue_none_count = 10  # Số lần liên tiếp None để dừng
+    codeStudent = 1
+    none_count = 0
+    continue_none_count = 10
     
-    for codeCity in range(1, 101):  # Vòng lặp qua các mã tỉnh/thành phố từ 1 đến 100
-        codeStudent = 1  # Bắt đầu từ mã học sinh 1
-        none_count = 0  # Biến đếm số lần không có dữ liệu cho từng mã tỉnh
-        for j in range(10**5):  # Giới hạn vòng lặp cho các mã học sinh trong mỗi tỉnh/thành
-            code_str = str(codeCity).zfill(2) + str(codeStudent + j).zfill(6)  # Tạo mã số báo danh
-            year = nam
+    # Mỗi thread khởi tạo driver riêng
+    driver = webdriver.Chrome(options=chrome_options)
+    
+    for j in range(10**5):
+        code_str = str(codeCity).zfill(2) + str(codeStudent + j).zfill(6)  # Tạo mã số báo danh
+        year = nam
 
-            # Lấy dữ liệu
-            scores = get_data(code_str, year)
+        # Lấy dữ liệu
+        scores = get_data(driver, code_str, year)
 
-            if scores:
+        if scores:
+            # Sử dụng lock để đảm bảo việc ghi vào all_scores an toàn
+            with lock:
                 all_scores.append(scores)
-                none_count = 0  # Reset lại none_count nếu có dữ liệu
-            elif j > 2000:
-                none_count += 1  # Tăng đếm nếu không có dữ liệu khi j > 2000
-                if none_count > continue_none_count:
-                    print(f"Dừng lại sau {continue_none_count} lần liên tiếp không có dữ liệu cho tỉnh {codeCity}.")
-                    break
+            none_count = 0  # Reset lại none_count nếu có dữ liệu
+        elif j > 2000:
+            none_count += 1  # Tăng đếm nếu không có dữ liệu khi j > 2000
+            if none_count > continue_none_count:
+                print(f"Dừng lại sau {continue_none_count} lần liên tiếp không có dữ liệu cho tỉnh {codeCity}.")
+                break
+    
+    driver.quit()  # Đóng trình duyệt sau khi hoàn thành
+
+if __name__ == "__main__":
+    # Tạo ThreadPoolExecutor với 10 luồng chạy song song
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        executor.map(scrape_city, range(1, 101))  # Scrape 100 cities in parallel
 
     # Chuyển đổi mảng scores thành DataFrame và ghi vào file CSV
     df = pd.DataFrame(all_scores)
     df.to_csv("scores.csv", index=False, encoding='utf-8-sig')
-
-# Đóng trình duyệt khi hoàn thành
-driver.quit()
