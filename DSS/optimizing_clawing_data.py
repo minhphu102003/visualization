@@ -90,7 +90,7 @@ def scrape_city(codeCity):
                 break
     
     driver.quit()  # Đóng trình duyệt sau khi hoàn thành
-
+ 
 if __name__ == "__main__":
     # Tạo ThreadPoolExecutor với 10 luồng chạy song song
     with ThreadPoolExecutor(max_workers=10) as executor:
