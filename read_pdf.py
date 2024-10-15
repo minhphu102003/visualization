@@ -2,6 +2,7 @@ import pdfplumber
 import pandas as pd
 import re
 from datetime import datetime
+import ma
 
 def process_content(content):
     # Loại bỏ dấu nháy đơn và kép
