@@ -1,4 +1,9 @@
 *.xlsx
 *.csv
 *.pdf
+*.json
+*.gz
+*.exe
 /DataSet
+/OCR
+/tesseract-ocr-3.02.grc
